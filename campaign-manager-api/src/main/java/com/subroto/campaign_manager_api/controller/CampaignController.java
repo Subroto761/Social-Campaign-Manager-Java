@@ -3,28 +3,55 @@ package com.subroto.campaign_manager_api.controller;
 import com.subroto.campaign_manager_api.model.Campaign;
 import com.subroto.campaign_manager_api.repository.CampaignRepository;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Optional;
 
-@RestController // Marks this as a controller for REST APIs
-@RequestMapping("/api/campaigns") // All URLs in this class will start with /api/campaigns
+@RestController
+@RequestMapping("/api/campaigns")
 public class CampaignController {
 
-    @Autowired // Spring automatically provides an instance of CampaignRepository
+    @Autowired
     private CampaignRepository campaignRepository;
 
-    // Endpoint to get all campaigns
-    // Handles GET requests to http://localhost:8080/api/campaigns
+    // GET - Already exists
     @GetMapping
     public List<Campaign> getAllCampaigns() {
         return campaignRepository.findAll();
     }
 
-    // Endpoint to create a new campaign
-    // Handles POST requests to http://localhost:8080/api/campaigns
+    // POST - Already exists
     @PostMapping
     public Campaign createCampaign(@RequestBody Campaign campaign) {
         return campaignRepository.save(campaign);
+    }
+
+    // NEW METHOD for UPDATING (PUT)
+    @PutMapping("/{id}")
+    public ResponseEntity<Campaign> updateCampaign(@PathVariable Long id, @RequestBody Campaign campaignDetails) {
+        Optional<Campaign> optionalCampaign = campaignRepository.findById(id);
+        if (optionalCampaign.isPresent()) {
+            Campaign existingCampaign = optionalCampaign.get();
+            existingCampaign.setTitle(campaignDetails.getTitle());
+            existingCampaign.setDescription(campaignDetails.getDescription());
+            Campaign updatedCampaign = campaignRepository.save(existingCampaign);
+            return ResponseEntity.ok(updatedCampaign);
+        } else {
+            return ResponseEntity.notFound().build();
+        }
+    }
+
+    // NEW METHOD for DELETING (DELETE)
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Void> deleteCampaign(@PathVariable Long id) {
+        Optional<Campaign> optionalCampaign = campaignRepository.findById(id);
+        if (optionalCampaign.isPresent()) {
+            campaignRepository.deleteById(id);
+            return ResponseEntity.noContent().build();
+        } else {
+            return ResponseEntity.notFound().build();
+        }
     }
 }

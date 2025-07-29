@@ -16,33 +16,55 @@ public class ApiService {
     private final ObjectMapper objectMapper = new ObjectMapper();
     private final String API_BASE_URL = "http://localhost:8080/api/campaigns";
 
+    // Method to get all campaigns
     public List<Campaign> getCampaigns() throws Exception {
-        // Create a GET request to our backend API
         HttpRequest request = HttpRequest.newBuilder()
                 .uri(URI.create(API_BASE_URL))
                 .build();
-
-        // Send the request and get the response
         HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
-
-        // Use Jackson's ObjectMapper to convert the JSON string into a List of Campaign objects
         return objectMapper.readValue(response.body(), new TypeReference<List<Campaign>>() {});
     }
 
-    // THIS IS THE NEW METHOD, PLACED AFTER getCampaigns()
+    // Method to create a campaign
     public void createCampaign(Campaign newCampaign) throws Exception {
-        // Convert the Campaign object to a JSON string
         String jsonBody = objectMapper.writeValueAsString(newCampaign);
-
-        // Create a POST request with the JSON body
         HttpRequest request = HttpRequest.newBuilder()
                 .uri(URI.create(API_BASE_URL))
                 .header("Content-Type", "application/json")
                 .POST(HttpRequest.BodyPublishers.ofString(jsonBody))
                 .build();
-
-        // Send the request and get the response
         client.send(request, HttpResponse.BodyHandlers.ofString());
-        // We don't need to do anything with the response for a create operation
+    }
+    
+    // Method to generate description with AI
+    public String generateDescription(String title) throws Exception {
+        String aiApiUrl = "http://localhost:8080/api/ai/generate-description";
+        HttpRequest request = HttpRequest.newBuilder()
+                .uri(URI.create(aiApiUrl))
+                .header("Content-Type", "text/plain")
+                .POST(HttpRequest.BodyPublishers.ofString(title))
+                .build();
+        HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
+        return response.body();
+    }
+
+    // Method for UPDATING a campaign
+    public void updateCampaign(Campaign campaign) throws Exception {
+        String jsonBody = objectMapper.writeValueAsString(campaign);
+        HttpRequest request = HttpRequest.newBuilder()
+                .uri(URI.create(API_BASE_URL + "/" + campaign.getId()))
+                .header("Content-Type", "application/json")
+                .PUT(HttpRequest.BodyPublishers.ofString(jsonBody))
+                .build();
+        client.send(request, HttpResponse.BodyHandlers.ofString());
+    }
+
+    // Method for DELETING a campaign
+    public void deleteCampaign(Long id) throws Exception {
+        HttpRequest request = HttpRequest.newBuilder()
+                .uri(URI.create(API_BASE_URL + "/" + id))
+                .DELETE()
+                .build();
+        client.send(request, HttpResponse.BodyHandlers.ofString());
     }
 }

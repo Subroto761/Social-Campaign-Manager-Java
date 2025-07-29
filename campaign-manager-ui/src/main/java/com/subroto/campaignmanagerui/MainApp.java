@@ -3,115 +3,236 @@ package com.subroto.campaignmanagerui;
 import com.subroto.campaignmanagerui.model.Campaign;
 import com.subroto.campaignmanagerui.service.ApiService;
 import javafx.application.Application;
+import javafx.application.Platform;
 import javafx.collections.FXCollections;
 import javafx.geometry.Insets;
+import javafx.scene.Node;
 import javafx.scene.Scene;
-import javafx.scene.control.Button;
-import javafx.scene.control.Label;
-import javafx.scene.control.ListView;
-import javafx.scene.control.TextArea;
-import javafx.scene.control.TextField;
-import javafx.scene.layout.VBox;
+import javafx.scene.control.*;
+import javafx.scene.layout.*;
 import javafx.stage.Stage;
 
 import java.util.List;
+import java.util.Optional;
 
 public class MainApp extends Application {
 
-    private ApiService apiService = new ApiService();
-    private ListView<Campaign> campaignListView = new ListView<>();
-
-    // UI elements for creating a new campaign
-    private TextField titleField = new TextField();
-    private TextArea descriptionArea = new TextArea();
+    private final ApiService apiService = new ApiService();
+    private final ListView<Campaign> campaignListView = new ListView<>();
+    private final TextArea detailsArea = new TextArea();
+    private Campaign selectedCampaign = null;
 
     @Override
     public void start(Stage primaryStage) {
         primaryStage.setTitle("Campaign Manager");
 
-        // --- Layout for Creating Campaigns ---
-        Label createTitleLabel = new Label("Create a New Campaign");
-        createTitleLabel.setStyle("-fx-font-size: 18px; -fx-font-weight: bold;");
-
-        titleField.setPromptText("Campaign Title");
-        descriptionArea.setPromptText("Campaign Description");
-        descriptionArea.setPrefHeight(100); // Make the description area taller
-
-        Button createButton = new Button("Create Campaign");
-        createButton.setOnAction(e -> createNewCampaign());
-
-
-        // --- Layout for Displaying Campaigns ---
-        Label listTitleLabel = new Label("Current Campaigns");
+        // --- Left Panel: List of Campaigns ---
+        Label listTitleLabel = new Label("Campaigns");
         listTitleLabel.setStyle("-fx-font-size: 18px; -fx-font-weight: bold;");
 
-        Button refreshButton = new Button("Refresh List");
+        Button newButton = new Button("➕ New Campaign");
+        newButton.setOnAction(e -> showCreateCampaignDialog());
+
+        Button refreshButton = new Button("🔄 Refresh");
         refreshButton.setOnAction(e -> loadCampaigns());
 
+        HBox listHeaderButtons = new HBox(10, newButton, refreshButton);
+        VBox leftPanel = new VBox(10, listTitleLabel, listHeaderButtons, campaignListView);
+        leftPanel.setPadding(new Insets(10));
 
-        // --- Main Layout ---
-        VBox layout = new VBox(10); // 10 is the spacing
-        layout.setPadding(new Insets(15)); // Add some padding around the window
-        layout.getChildren().addAll(
-            createTitleLabel,
-            new Label("Title:"),
-            titleField,
-            new Label("Description:"),
-            descriptionArea,
-            createButton,
-            new Label("---"), // A separator
-            listTitleLabel,
-            campaignListView,
-            refreshButton
-        );
+        // --- Right Panel: Campaign Details ---
+        Label detailsTitleLabel = new Label("Details");
+        detailsTitleLabel.setStyle("-fx-font-size: 18px; -fx-font-weight: bold;");
+        detailsArea.setEditable(false);
+        detailsArea.setWrapText(true);
+        detailsArea.setPromptText("Select a campaign to see its details");
 
-        Scene scene = new Scene(layout, 500, 600);
+        Button editButton = new Button("✏️ Edit");
+        editButton.setOnAction(e -> showEditCampaignDialog());
+
+        Button deleteButton = new Button("🗑️ Delete");
+        deleteButton.setOnAction(e -> deleteSelectedCampaign());
+
+        HBox detailsButtons = new HBox(10, editButton, deleteButton);
+        VBox rightPanel = new VBox(10, detailsTitleLabel, detailsArea, detailsButtons);
+        VBox.setVgrow(detailsArea, Priority.ALWAYS);
+        rightPanel.setPadding(new Insets(10));
+
+        // --- Main Layout: Split Pane ---
+        SplitPane splitPane = new SplitPane();
+        splitPane.getItems().addAll(leftPanel, rightPanel);
+        splitPane.setDividerPositions(0.4);
+
+        // --- Listener for ListView Selection ---
+        campaignListView.getSelectionModel().selectedItemProperty().addListener((obs, oldSelection, newSelection) -> {
+            selectedCampaign = newSelection;
+            if (newSelection != null) {
+                detailsArea.setText("Title: " + newSelection.getTitle() + "\n\nDescription:\n" + newSelection.getDescription());
+            } else {
+                detailsArea.clear();
+            }
+        });
+
+        Scene scene = new Scene(splitPane, 800, 600);
         primaryStage.setScene(scene);
         primaryStage.show();
 
-        // Load campaigns when the app starts
         loadCampaigns();
     }
 
     private void loadCampaigns() {
-        try {
-            List<Campaign> campaigns = apiService.getCampaigns();
-            campaignListView.setItems(FXCollections.observableArrayList(campaigns));
-        } catch (Exception e) {
-            e.printStackTrace();
+        new Thread(() -> {
+            try {
+                List<Campaign> campaigns = apiService.getCampaigns();
+                Platform.runLater(() -> {
+                    campaignListView.setItems(FXCollections.observableArrayList(campaigns));
+                    detailsArea.clear();
+                });
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+        }).start();
+    }
+
+    private void deleteSelectedCampaign() {
+        if (selectedCampaign == null) return;
+
+        Alert alert = new Alert(Alert.AlertType.CONFIRMATION);
+        alert.setTitle("Confirm Deletion");
+        alert.setHeaderText("Delete Campaign: " + selectedCampaign.getTitle());
+        alert.setContentText("Are you sure you want to delete this campaign? This action cannot be undone.");
+        Optional<ButtonType> result = alert.showAndWait();
+
+        if (result.isPresent() && result.get() == ButtonType.OK) {
+            new Thread(() -> {
+                try {
+                    apiService.deleteCampaign(selectedCampaign.getId());
+                    Platform.runLater(this::loadCampaigns);
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
+            }).start();
         }
     }
 
-    private void createNewCampaign() {
-        // Get text from the input fields
-        String title = titleField.getText();
-        String description = descriptionArea.getText();
+    private void showCreateCampaignDialog() {
+        Dialog<Campaign> dialog = new Dialog<>();
+        dialog.setTitle("Create New Campaign");
+        dialog.setHeaderText("Enter the details for the new campaign.");
 
-        // Basic validation: make sure fields are not empty
-        if (title.isEmpty() || description.isEmpty()) {
-            System.out.println("Title and Description cannot be empty.");
-            // In a real app, you would show an alert dialog to the user here
+        ButtonType saveButtonType = new ButtonType("Save", ButtonBar.ButtonData.OK_DONE);
+        dialog.getDialogPane().getButtonTypes().addAll(saveButtonType, ButtonType.CANCEL);
+
+        GridPane grid = new GridPane();
+        grid.setHgap(10);
+        grid.setVgap(10);
+        grid.setPadding(new Insets(20, 150, 10, 10));
+
+        TextField titleField = new TextField();
+        titleField.setPromptText("Title");
+        TextArea descriptionArea = new TextArea();
+        descriptionArea.setPromptText("Description");
+
+        Button aiButton = new Button("Generate with AI");
+
+        grid.add(new Label("Title:"), 0, 0);
+        grid.add(titleField, 1, 0);
+        grid.add(aiButton, 2, 0);
+        grid.add(new Label("Description:"), 0, 1);
+        grid.add(descriptionArea, 1, 1, 2, 1);
+
+        dialog.getDialogPane().setContent(grid);
+
+        aiButton.setOnAction(e -> {
+            String title = titleField.getText();
+            if (!title.isEmpty()) {
+                descriptionArea.setText("Generating with AI...");
+                new Thread(() -> {
+                    try {
+                        String desc = apiService.generateDescription(title);
+                        Platform.runLater(() -> descriptionArea.setText(desc));
+                    } catch (Exception ex) {
+                        Platform.runLater(() -> descriptionArea.setText("Error generating description."));
+                    }
+                }).start();
+            }
+        });
+
+        dialog.setResultConverter(dialogButton -> {
+            if (dialogButton == saveButtonType) {
+                Campaign newCampaign = new Campaign();
+                newCampaign.setTitle(titleField.getText());
+                newCampaign.setDescription(descriptionArea.getText());
+                return newCampaign;
+            }
+            return null;
+        });
+
+        Optional<Campaign> result = dialog.showAndWait();
+        result.ifPresent(campaign -> {
+            new Thread(() -> {
+                try {
+                    apiService.createCampaign(campaign);
+                    Platform.runLater(this::loadCampaigns);
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
+            }).start();
+        });
+    }
+
+    private void showEditCampaignDialog() {
+        if (selectedCampaign == null) {
+            Alert alert = new Alert(Alert.AlertType.WARNING);
+            alert.setTitle("No Selection");
+            alert.setHeaderText("No Campaign Selected");
+            alert.setContentText("Please select a campaign from the list to edit.");
+            alert.showAndWait();
             return;
         }
 
-        // Create a new campaign object
-        Campaign newCampaign = new Campaign();
-        newCampaign.setTitle(title);
-        newCampaign.setDescription(description);
+        Dialog<Campaign> dialog = new Dialog<>();
+        dialog.setTitle("Edit Campaign");
+        dialog.setHeaderText("Edit the details for '" + selectedCampaign.getTitle() + "'");
 
-        try {
-            // Call the API to create the campaign
-            apiService.createCampaign(newCampaign);
+        ButtonType saveButtonType = new ButtonType("Save", ButtonBar.ButtonData.OK_DONE);
+        dialog.getDialogPane().getButtonTypes().addAll(saveButtonType, ButtonType.CANCEL);
 
-            // Clear the input fields after successful creation
-            titleField.clear();
-            descriptionArea.clear();
+        GridPane grid = new GridPane();
+        grid.setHgap(10);
+        grid.setVgap(10);
+        grid.setPadding(new Insets(20, 150, 10, 10));
 
-            // Refresh the list to show the new campaign
-            loadCampaigns();
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
+        TextField titleField = new TextField(selectedCampaign.getTitle());
+        TextArea descriptionArea = new TextArea(selectedCampaign.getDescription());
+
+        grid.add(new Label("Title:"), 0, 0);
+        grid.add(titleField, 1, 0);
+        grid.add(new Label("Description:"), 0, 1);
+        grid.add(descriptionArea, 1, 1);
+
+        dialog.getDialogPane().setContent(grid);
+
+        dialog.setResultConverter(dialogButton -> {
+            if (dialogButton == saveButtonType) {
+                selectedCampaign.setTitle(titleField.getText());
+                selectedCampaign.setDescription(descriptionArea.getText());
+                return selectedCampaign;
+            }
+            return null;
+        });
+
+        Optional<Campaign> result = dialog.showAndWait();
+        result.ifPresent(campaign -> {
+            new Thread(() -> {
+                try {
+                    apiService.updateCampaign(campaign);
+                    Platform.runLater(this::loadCampaigns);
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
+            }).start();
+        });
     }
 
     public static void main(String[] args) {
