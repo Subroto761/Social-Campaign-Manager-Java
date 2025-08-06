@@ -17,6 +17,6 @@ public class Campaign {
 
     private String title;
 
-    @Lob // <-- ADD THIS ANNOTATION
+    @Lob 
     private String description;
 }

@@ -1,4 +1,4 @@
-package com.subroto.campaign_manager_api.service; // Make sure this package name is correct
+package com.subroto.campaign_manager_api.service; 
 
 import org.json.JSONArray;
 import org.json.JSONObject;

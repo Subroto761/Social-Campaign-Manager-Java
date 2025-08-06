@@ -1,4 +1,4 @@
-package com.subroto.campaign_manager_api.controller; // Make sure this package name is correct
+package com.subroto.campaign_manager_api.controller; 
 
 import com.subroto.campaign_manager_api.service.AIService;
 import org.springframework.beans.factory.annotation.Autowired;

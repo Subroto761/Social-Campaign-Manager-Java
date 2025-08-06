@@ -16,7 +16,7 @@ public class CampaignController {
     @Autowired
     private CampaignRepository campaignRepository;
 
-    // GET - Already exists
+    // GET 
     @GetMapping
     public List<Campaign> getAllCampaigns() {
         return campaignRepository.findAll();
@@ -28,7 +28,7 @@ public class CampaignController {
         return campaignRepository.save(campaign);
     }
 
-    // NEW METHOD for UPDATING (PUT)
+    // METHOD for UPDATING (PUT)
     @PutMapping("/{id}")
     public ResponseEntity<Campaign> updateCampaign(@PathVariable Long id, @RequestBody Campaign campaignDetails) {
         Optional<Campaign> optionalCampaign = campaignRepository.findById(id);
@@ -43,7 +43,7 @@ public class CampaignController {
         }
     }
 
-    // NEW METHOD for DELETING (DELETE)
+    // METHOD for DELETING (Delete)
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> deleteCampaign(@PathVariable Long id) {
         Optional<Campaign> optionalCampaign = campaignRepository.findById(id);
