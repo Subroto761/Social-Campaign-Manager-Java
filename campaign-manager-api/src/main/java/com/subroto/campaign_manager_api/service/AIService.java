@@ -13,12 +13,18 @@ import java.net.http.HttpResponse;
 @Service
 public class AIService {
 
-    @Value("${google.api.key}")
+    @Value("${gemini.api-key:}")
     private String apiKey;
+
+    @Value("${gemini.model:gemini-2.5-flash}")
+    private String model;
 
     private final HttpClient client = HttpClient.newHttpClient();
 
     public String generateDescription(String prompt) throws Exception {
+        if (apiKey == null || apiKey.isBlank()) {
+            throw new IllegalStateException("GEMINI_API_KEY is not set");
+        }
         String fullPrompt = "Based on this simple campaign idea: '" + prompt + "', write a compelling and inspiring one-paragraph description for a social awareness campaign. Make it sound professional and motivating.";
 
         JSONObject textPart = new JSONObject().put("text", fullPrompt);
@@ -27,11 +33,12 @@ public class AIService {
         JSONArray contents = new JSONArray().put(content);
         JSONObject requestBody = new JSONObject().put("contents", contents);
 
-        String geminiApiUrl = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=" + apiKey;
+        String geminiApiUrl = "https://generativelanguage.googleapis.com/v1beta/models/" + model + ":generateContent";
 
         HttpRequest request = HttpRequest.newBuilder()
                 .uri(URI.create(geminiApiUrl))
                 .header("Content-Type", "application/json")
+                .header("x-goog-api-key", apiKey)
                 .POST(HttpRequest.BodyPublishers.ofString(requestBody.toString()))
                 .build();
 

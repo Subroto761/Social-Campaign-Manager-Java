@@ -34,5 +34,6 @@ target/
 *.iws
 .idea/
 
-# Sensitive Properties - DO NOT COMMIT YOUR API KEY!
-application.properties
+# Local overrides (put real secrets here, never in application.properties)
+application-local.properties
+.env

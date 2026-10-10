@@ -1,0 +1,26 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+          cache: maven
+
+      - name: Backend - build and test
+        working-directory: campaign-manager-api
+        run: mvn -B verify
+
+      - name: Desktop client - compile
+        working-directory: campaign-manager-ui
+        run: mvn -B compile
